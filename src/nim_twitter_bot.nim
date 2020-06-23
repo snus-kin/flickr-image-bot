@@ -30,7 +30,7 @@ proc checkPhoto(attrib: XmlNode): bool =
     return false
 
   # Check we haven't posted it already, against a file, open as RW to create if not existing
-  var fileStream = newFileStream("posted_id.txt", fmReadWrite)
+  var fileStream = newFileStream("posted_ids.txt", fmRead)
   var line = ""
   while fileStream.readLine(line):
     if line == attrib.attr("id"):
