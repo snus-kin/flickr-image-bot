@@ -1,4 +1,4 @@
-import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json, base64
+import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json
 import twitter
 
 proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
@@ -43,7 +43,7 @@ proc downloadPhoto(url: string): string =
   let resp = client.getContent(url)
   return resp
 
-proc makeTweet(image: string, tweetString: string): void=
+proc makeTweet(image: string, tweetString: string): bool=
   # Actually tweet the thing!
   # Build stuff
   let config = loadConfig("twitter_bot.cfg")
@@ -72,6 +72,8 @@ proc makeTweet(image: string, tweetString: string): void=
   if tresp.status != "200 OK":
     raise newException(ValueError, "POST /statuses/update.json status " & uresp.status)
   
+  return true
+  
 when isMainModule:
   # seed random number generator
   randomize()
@@ -98,4 +100,10 @@ when isMainModule:
   # download the photo saving as a binary string
   let photo = downloadPhoto(chosen.attr("url_o"))
 
-  makeTweet(photo, tweetString)
+  # tweet it
+  let success = makeTweet(photo, tweetString)
+
+  if success:
+    let f = open("posted_ids.txt", fmAppend)
+    f.write(chosen.attr("id"))
+
