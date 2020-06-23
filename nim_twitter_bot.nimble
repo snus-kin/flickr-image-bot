@@ -11,4 +11,4 @@ bin           = @["nim_twitter_bot"]
 # Dependencies
 
 requires "nim >= 0.19.2"
-switch("define", "ssl")
+requires "twitter"

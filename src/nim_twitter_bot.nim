@@ -1,4 +1,4 @@
-import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json
+import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json, base64
 import twitter
 
 proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
@@ -27,7 +27,6 @@ proc checkPhoto(attrib: XmlNode): bool =
   # Check a single XML node to see if it can be posted
   # Check license info
   if attrib.attr("license") notin ["7", "9", "10"]:
-    echo("Bad l")
     return false
 
   # Check we haven't posted it already, against a file, open as RW to create if not existing
@@ -45,7 +44,8 @@ proc downloadPhoto(url: string): string =
   return resp
 
 proc makeTweet(image: string, tweetString: string): void=
-  # Authenticate
+  # Actually tweet the thing!
+  # Build stuff
   let config = loadConfig("twitter_bot.cfg")
   let consumerToken = newConsumerToken(config.getSectionValue("API", "twitterConsumer"),
                                        config.getSectionValue("API", "twitterConsumerSecret"))
@@ -55,19 +55,20 @@ proc makeTweet(image: string, tweetString: string): void=
   
   # Send the image to the upload server
   var ubody = newStringTable()
-  ubody["media"] = image
-  let uresp = twitterAPI.post("/media/upload.json", ubody)
+  ubody["media_category"] = "tweet_image"
+  ubody["media"] = ""
+  let uresp = twitterAPI.post("media/upload.json", ubody, media=true, data=image)
   if uresp.status != "200 OK":
     raise newException(ValueError, "POST /media/upload.json status " & uresp.status)
   
   # Extract media id from upload
-  let media_id = parseJson(uresp.body)["media_id"].getStr()
+  let media_id = parseJson(uresp.body)["media_id_string"].getStr()
   
   # Now, send the tweet
   var tbody = newStringTable()
   tbody["status"] = tweetString
   tbody["media_ids"] = media_id
-  let tresp = twitterAPI.post("/statuses/update.json", tbody)
+  let tresp = twitterAPI.statusesUpdate(tbody)
   if tresp.status != "200 OK":
     raise newException(ValueError, "POST /statuses/update.json status " & uresp.status)
   
