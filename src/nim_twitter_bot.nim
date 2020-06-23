@@ -49,8 +49,8 @@ when isMainModule:
   # Pick a random child index to try, otherwise try the next one
   var chosen: XmlNode
   while true:
-    var index = rand(0..len(search_xml[0]))
-    chosen = search_xml[0][index]
+    var index = rand(0..len(search_xml.child("photos")))
+    chosen = search_xml.child("photos")[index]
     if checkPhoto(chosen):
       break
 
