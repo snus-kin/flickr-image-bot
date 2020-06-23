@@ -1,4 +1,5 @@
-import httpclient, xmlparser, xmltree, random, parsecfg, streams
+import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json
+import twitter
 
 proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
   # Create a httpClient and get a search for 500 images
@@ -9,7 +10,7 @@ proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
   body["tags"] = searchTags
   body["sort"] = "date-posted-desc"
   body["per_page"] = "500"
-  body["extras"] = "license"
+  body["extras"] = "license,url_o"
 
   var resp = client.post("https://api.flickr.com/services/rest/", multipart=body)
   if resp.status != "200 OK":
@@ -36,8 +37,43 @@ proc checkPhoto(attrib: XmlNode): bool =
     if line == attrib.attr("id"):
       return false
   return true
+
+proc downloadPhoto(url: string): string =
+  # Download a photo given a url, returns a string
+  let client = newHttpClient()
+  let resp = client.getContent(url)
+  return resp
+
+proc makeTweet(image: string, tweetString: string): void=
+  # Authenticate
+  let config = loadConfig("twitter_bot.cfg")
+  let consumerToken = newConsumerToken(config.getSectionValue("API", "twitterConsumer"),
+                                       config.getSectionValue("API", "twitterConsumerSecret"))
+  let twitterAPI = newTwitterApi(consumerToken,
+                                 config.getSectionValue("API", "twitterToken"),
+                                 config.getSectionValue("API", "twitterSecret"))
+  
+  # Send the image to the upload server
+  var ubody = newStringTable()
+  ubody["media"] = image
+  let uresp = twitterAPI.post("/media/upload.json", ubody)
+  if uresp.status != "200 OK":
+    raise newException(ValueError, "POST /media/upload.json status " & uresp.status)
+  
+  # Extract media id from upload
+  let media_id = parseJson(uresp.body)["media_id"].getStr()
+  
+  # Now, send the tweet
+  var tbody = newStringTable()
+  tbody["status"] = tweetString
+  tbody["media_ids"] = media_id
+  let tresp = twitterAPI.post("/statuses/update.json", tbody)
+  if tresp.status != "200 OK":
+    raise newException(ValueError, "POST /statuses/update.json status " & uresp.status)
   
 when isMainModule:
+  # seed random number generator
+  randomize()
   # load config file
   let config = loadConfig("twitter_bot.cfg")
   let flickrApiKey = config.getSectionValue("API", "flickrApiKey")
@@ -54,5 +90,11 @@ when isMainModule:
     if checkPhoto(chosen):
       break
 
-  let tweetString = chosen.attr("title")
-  echo(tweetString)
+  # The flickr link is in the form https://www.flickr.com/photos/{user-id}/{photo-id}
+  let flickrLink = "https://flickr.com/photos/" & chosen.attr("owner") & "/" & chosen.attr("id")
+  let tweetString = chosen.attr("title") & "\n\n" & flickrLink
+
+  # download the photo saving as a binary string
+  let photo = downloadPhoto(chosen.attr("url_o"))
+
+  makeTweet(photo, tweetString)
