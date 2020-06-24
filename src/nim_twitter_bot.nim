@@ -15,6 +15,7 @@ proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
   var resp = client.post("https://api.flickr.com/services/rest/", multipart=body)
   if resp.status != "200 OK":
     raise newException(ValueError, "POST /rest/ status " & resp.status)
+  client.close()
 
   try:
     var parsed = parseXml(resp.body)
@@ -34,13 +35,16 @@ proc checkPhoto(attrib: XmlNode): bool =
   var line = ""
   while fileStream.readLine(line):
     if line == attrib.attr("id"):
+      fileStream.close()
       return false
+  fileStream.close()
   return true
 
 proc downloadPhoto(url: string): string =
   # Download a photo given a url, returns a string
   let client = newHttpClient()
   let resp = client.getContent(url)
+  client.close()
   return resp
 
 proc makeTweet(image: string, tweetString: string): bool=
@@ -106,4 +110,4 @@ when isMainModule:
   if success:
     let f = open("posted_ids.txt", fmAppend)
     f.write(chosen.attr("id"))
-
+    f.close()
