@@ -100,7 +100,7 @@ when isMainModule:
   # seed random number generator
   randomize()
   # load config file, create the folder if it doesn't exist
-  const configDir = getHomeDir() & ".config/nim-twitter-bot/"
+  const configDir = getHomeDir() & ".config/flickr_image_bot/"
   if not existsDir(configDir):
     createDir(configDir)
   
