@@ -106,7 +106,9 @@ when isMainModule:
   
   const configFile = configDir & "twitter_bot.cfg"
   if not existsFile(configFile):
+    echo("Config file created")
     makeConfig(configFile)
+    quit(0)
 
   let config = loadConfig(configFile)
   let flickrApiKey = config.getSectionValue("API", "flickrApiKey")
