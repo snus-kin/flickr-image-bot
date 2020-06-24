@@ -1,4 +1,4 @@
-import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json
+import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json, os
 import twitter
 
 proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
@@ -24,20 +24,19 @@ proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
     stderr.writeline("Malformed XML Response from flickr")
     quit(1)
 
-proc checkPhoto(attrib: XmlNode): bool =
+proc checkPhoto(attrib: XmlNode, configDir: string): bool =
   # Check a single XML node to see if it can be posted
   # Check license info
   if attrib.attr("license") notin ["7", "9", "10"]:
     return false
 
   # Check we haven't posted it already, against a file, open as RW to create if not existing
-  var fileStream = newFileStream("posted_ids.txt", fmRead)
+  var fileStream = newFileStream(configDir & "posted_ids.txt", fmRead)
+  defer: fileStream.close()
   var line = ""
   while fileStream.readLine(line):
     if line == attrib.attr("id"):
-      fileStream.close()
       return false
-  fileStream.close()
   return true
 
 proc downloadPhoto(url: string): string =
@@ -47,10 +46,10 @@ proc downloadPhoto(url: string): string =
   client.close()
   return resp
 
-proc makeTweet(image: string, tweetString: string): bool=
+proc makeTweet(image: string, tweetString: string, configFile: string): bool=
   # Actually tweet the thing!
   # Build stuff
-  let config = loadConfig("twitter_bot.cfg")
+  let config = loadConfig(configFile)
   let consumerToken = newConsumerToken(config.getSectionValue("API", "twitterConsumer"),
                                        config.getSectionValue("API", "twitterConsumerSecret"))
   let twitterAPI = newTwitterApi(consumerToken,
@@ -77,12 +76,40 @@ proc makeTweet(image: string, tweetString: string): bool=
     raise newException(ValueError, "POST /statuses/update.json status " & uresp.status)
   
   return true
+
+proc makeConfig(file: string): void =
+  # make the config file
+  let contents = [
+    "[General]",
+    "searchTags=\"\"\n",
+    "[API]",
+    "flickrApiKey=\"\"",
+    "twitterConsumer=\"\"",
+    "twitterConsumerSecret=\"\"",
+    "twitterToken=\"\"",
+    "twitterSecret=\"\""
+  ]
+
+  let cfg = open(file, fmWrite)
+  defer: cfg.close()
+
+  for line in contents:
+    cfg.writeLine(line)
   
 when isMainModule:
   # seed random number generator
   randomize()
-  # load config file
-  let config = loadConfig("twitter_bot.cfg")
+  # load config file, create the folder if it doesn't exist
+  const configDir = getHomeDir() & ".config/nim-twitter-bot/"
+  if not existsDir(configDir):
+    createDir(configDir)
+  
+  const configFile = configDir & "twitter_bot.cfg"
+  echo(configFile)
+  if not existsFile(configFile):
+    makeConfig(configFile)
+
+  let config = loadConfig(configFile)
   let flickrApiKey = config.getSectionValue("API", "flickrApiKey")
   let searchTags = config.getSectionValue("General", "searchTags")
   
@@ -94,7 +121,7 @@ when isMainModule:
   while true:
     var index = rand(0..len(search_xml.child("photos")))
     chosen = search_xml.child("photos")[index]
-    if checkPhoto(chosen):
+    if checkPhoto(chosen, configDir):
       break
 
   # The flickr link is in the form https://www.flickr.com/photos/{user-id}/{photo-id}
@@ -105,9 +132,9 @@ when isMainModule:
   let photo = downloadPhoto(chosen.attr("url_o"))
 
   # tweet it
-  let success = makeTweet(photo, tweetString)
+  let success = makeTweet(photo, tweetString, configFile)
 
   if success:
-    let f = open("posted_ids.txt", fmAppend)
+    let f = open(configDir & "posted_ids.txt", fmAppend)
+    defer: f.close()
     f.write(chosen.attr("id"))
-    f.close()
