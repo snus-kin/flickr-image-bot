@@ -1,0 +1,9 @@
+[Unit]
+Description=Tweet a new photo
+
+[Timer]
+OnCalendar=00/3:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

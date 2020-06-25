@@ -106,8 +106,8 @@ when isMainModule:
   
   const configFile = configDir & "twitter_bot.cfg"
   if not existsFile(configFile):
-    echo("Config file created")
     makeConfig(configFile)
+    echo("Config file created")
     quit(0)
 
   let config = loadConfig(configFile)

@@ -1,0 +1,6 @@
+[Unit]
+Description=Tweet a new picture
+After=network.target
+
+[Service]
+ExecStart=flickr_image_bot
