@@ -138,4 +138,4 @@ when isMainModule:
   if success:
     let f = open(configDir & "posted_ids.txt", fmAppend)
     defer: f.close()
-    f.write(chosen.attr("id"))
+    f.write(chosen.attr("id")&"\n")
