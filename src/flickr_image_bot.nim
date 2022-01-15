@@ -1,4 +1,5 @@
 import httpclient, xmlparser, xmltree, random, parsecfg, streams, strtabs, json, os
+from std/times import getTime, toUnix, nanosecond
 import twitter
 
 proc searchFlickr(apiKey: string, searchTags: string): XmlNode =
@@ -98,7 +99,8 @@ proc makeConfig(file: string): void =
   
 when isMainModule:
   # seed random number generator
-  randomize()
+  let now = getTime()
+  randomize(now.toUnix * 1_000_000_000 + now.nanosecond)
   # load config file, create the folder if it doesn't exist
   const configDir = getHomeDir() & ".config/flickr_image_bot/"
   if not existsDir(configDir):
@@ -120,7 +122,7 @@ when isMainModule:
   # Pick a random child index to try, otherwise try the next one
   var chosen: XmlNode
   while true:
-    var index = rand(0..len(search_xml.child("photos")))
+    var index = rand(0..len(search_xml.child("photos"))-1)
     chosen = search_xml.child("photos")[index]
     if checkPhoto(chosen, configDir):
       break
